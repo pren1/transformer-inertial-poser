@@ -76,12 +76,16 @@ args = parser.parse_args()
 batch_size = args.batch_size
 seq_length = args.seq_len
 epochs = args.epochs
+'What is sbps? it means stationary body points'
 n_sbps = args.n_sbps
+'With acc_sum, you calculate acceleration sum as a feature'
 with_acc_sum = args.with_acc_sum
 d_tag = args.data_version_tag
+'What is noise_input_hist?'
 noise_input_hist = args.noise_input_hist
 
 if args.double:
+    # todo: 'set accuracy'
     torch.set_default_dtype(torch.float64)
 
 set_seed(args.seed)
@@ -92,7 +96,13 @@ if torch.cuda.is_available():
 print(args)
 print("Preparing data...")
 
+'input, we get 6 imus in total,'
+'9 means rotation matrix, 3 means acceleration'
 input_channels = 6 * (9 + 3)
+
+'18 joints in total, 6 is the rotation matrix in 6-dim format'
+'3 is the root linear velocity'
+'4 here means, offset vector + a bit indicates whether the sbps occur'
 output_channels = 18 * 6 + 3 + (n_sbps * 4)
 
 model = TF_RNN_Past_State(
@@ -121,6 +131,7 @@ else:
     optimizer = getattr(optim, args.optim)(model.parameters(), lr=lr)
 
 if args.cosine_lr:
+    'here you use optimizer as input, that is why the learning rate is used in optimizer'
     lr_s = CosineAnnealingLR(optimizer=optimizer, T_max=args.epochs + 850)      # 850 probably doesn't matter
 else:
     lr_s = None
@@ -128,7 +139,7 @@ else:
 
 def train(epoch):
     # torch.autograd.set_detect_anomaly(True)
-
+    'enter the train mode'
     model.train()
 
     data = TrainSubDataset(
@@ -154,8 +165,9 @@ def train(epoch):
         i += x_imu.size()[0]
 
         start = time.time()
-
+        'Here you define two losses for either the rotation, root velocity'
         loss_func = loss_q_only_2axis
+        'or for the c, which is the sbps'
         loss_func_c = loss_constr_multi
 
         if args.double:
@@ -171,11 +183,12 @@ def train(epoch):
         noise_s = (torch.rand(x_s.size()) - 0.5) * (noise_input_hist * 2)
         if args.cuda:
             noise_s = noise_s.cuda()
-
+        'what is x_s here?'
         y_pred = model(x_imu, x_s + noise_s)
 
+        'seems to be a regularization for velocity vector prediction'
         loss_j = loss_jerk(y_pred[:, :, :-3-(n_sbps * 4)])
-
+        'Shape of the y_pred? I think you are getting the last element as your outputs'
         y_pred = y_pred.reshape(-1, y_pred.size()[-1])
         y = y.reshape(-1, y.size()[-1])
 
@@ -194,7 +207,7 @@ def train(epoch):
         total_norm = None
         if args.clip > 0:
             total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-
+        'here optimizer use clipped gradient values'
         optimizer.step()
 
         batch_idx += 1

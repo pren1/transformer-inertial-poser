@@ -11,7 +11,7 @@ import pickle
 from scipy import ndimage
 from data_utils import batch_to_rot_mat_2axis, imu_rotate_to_local
 import constants as cst
-
+import pdb
 
 def store_imu_s_info(imu_gt_dirs,
                      down_sample_rates,
@@ -32,6 +32,7 @@ def store_imu_s_info(imu_gt_dirs,
     start_time = time.time()
 
     assert len(imu_gt_dirs) == len(down_sample_rates)
+    'You see for different directories we have different down sample rates!'
     for imu_gt_dir, down_sample_rate in zip(imu_gt_dirs, down_sample_rates):
 
         # the DIP dataset does not have root translation info
@@ -59,6 +60,8 @@ def store_imu_s_info(imu_gt_dirs,
             IMU_cur = IMU_GT_cur["imu"]
             S_cur = IMU_GT_cur["nimble_qdq"]
             if is_augmented_dip:
+                'I need to double check what is inside S_cur'
+                'n_dofs value is 57 here... strange'
                 S_cur[:, cst.n_dofs:(cst.n_dofs + 3)] = np.nan
             C_cur = IMU_GT_cur["constrs"]
 
@@ -79,11 +82,13 @@ def store_imu_s_info(imu_gt_dirs,
             # acc average filter
             # note the mode is 'nearest', padding first reading to the left
             # test time will match this setting.
+            'acceleration smooth'
             IMU_cur[:, 6 * 9: 6 * 9 + 18] = ndimage.uniform_filter1d(
                 IMU_cur[:, 6 * 9: 6 * 9 + 18], cst.ACC_MOVING_AVE_LEN, axis=0, mode="nearest"
             )
             # constant bias noise
             IMU_cur[:, 6 * 9: 6 * 9 + 18] += np.random.uniform(-cst.BIAS_NOISE_ACC, cst.BIAS_NOISE_ACC, 18)
+            'imu_rotate_to_local'
             IMU_local = imu_rotate_to_local(IMU_cur)
             IMU.append(np.single(IMU_local))
 
@@ -161,12 +166,17 @@ if __name__ == "__main__":
                      "data/syn_MPI_mosh_v0", "data/syn_SFU_v0", "data/syn_Transitions_mocap_v0",
                      "data/syn_TotalCapture_v0", "data/preprocessed_DIP_IMU_v0_with_aug_c_train"]
 
+    'Notice the last one is actually your DIP dataset! Not belongs to amass!'
+    dataset_names = [dataset_names[4], dataset_names[-1]]
+    new_dataset_names = []
     for dataset_name in dataset_names:
-        dataset_name.replace("v0", TAG)
+        new_dataset_names.append(dataset_name.replace("v0", TAG))
+    dataset_names = new_dataset_names
 
     # downweight larger datasets in AMASS a bit -- probably unimportant
     # note that only syn_TotalCapture is used in training, not the real preprocessed_TotalCapture
     dataset_down_sample_rates = [100, 100, 250, 100, 60, 60, 60, 60, 60, 60, 60, 60, 60]
+    dataset_down_sample_rates = [dataset_down_sample_rates[4], dataset_down_sample_rates[-1]]
 
     store_imu_s_info(
         imu_gt_dirs=dataset_names,

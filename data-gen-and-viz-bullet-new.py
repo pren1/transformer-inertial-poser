@@ -24,6 +24,7 @@ import bullet_client
 from bullet_agent import SimAgent
 import constants as cst
 from learning_utils import set_seed
+import pdb
 
 np.set_printoptions(threshold=sys.maxsize)
 np.set_printoptions(suppress=True)
@@ -57,11 +58,13 @@ def get_raw_motion_info(robot: SimAgent, m: Motion) -> List[Dict[int, List[float
         for idx in all_joint_idx:
             if idx == robot.get_char_info().root:
                 # this is the root joint
+                'position, orientation, linear and angular velocities'
                 _, Q, _, _ = robot.get_root_state()
                 p = robot.get_root_local_point_p(cst.ROOT_COM_OFFSET)
                 cur_info[idx] = list(p) + list(Q)
             else:
                 state = robot.get_link_states([idx])
+                'state[0] is position, state[1] is orientation'
                 cur_info[idx] = list(state[0]) + list(state[1])
             assert len(cur_info[idx]) == 7
 
@@ -92,6 +95,7 @@ def get_all_contr_seqs_from_raw_motion_info(
         contrs_link, r_sum_link = get_link_contr_seq_from_raw_motion_info(
             raw_info, link
         )
+        'contrs_link shape: [864, 4]'
         c_all.append(contrs_link)
         # if np.max(np.abs(r_sum_link)) > 0.2:
         #     print(link, r_sum_link)
@@ -149,12 +153,12 @@ def get_imu_readings_from_raw_motion_info(
         raw_info: List[Dict[int, List[float]]]
 ) -> np.ndarray:
     # a matrix of size l-by-(6*(9+3))
-
     l = len(raw_info)
     H = np.zeros((l, 6 * (9 + 3)), float)
     _info = robot.get_char_info()
 
     if USE_KNEE_RATHER_ANKLE_IMU:
+        'this contains node index of different parts'
         imu_joints = [
             _info.root,
             _info.lwrist,
@@ -177,7 +181,7 @@ def get_imu_readings_from_raw_motion_info(
         # fill in the ori readings
         imu_Rs = []  # 6*9
         cur_info = raw_info[t]
-
+        'This is how you get the orientation reading, begin at 3'
         root_q = np.array(cur_info[_info.root][3:])
         root_R = conversions.Q2R(root_q)
         imu_Rs += root_R.flatten().tolist()  # in global frame (no transform)
@@ -212,6 +216,7 @@ def get_imu_readings_from_raw_motion_info(
         H[t, 6 * 9:] = imu_as
 
     # pad boundary acc
+    'You just repeat the edge values multiple times'
     H[:cst.acc_fd_N, 6 * 9:] = H[cst.acc_fd_N, 6 * 9:]
     H[-cst.acc_fd_N:, 6 * 9:] = H[-cst.acc_fd_N - 1, 6 * 9:]
 
@@ -233,7 +238,7 @@ def gen_data_job_single_core(src_dir_name, save_dir, file_name, name_contains):
         pb_client.resetSimulation()
 
         motion_name = os.path.join(src_dir_name, file_name)
-
+        'turn npz to pkl to data/syn_ACCAC_v1 folder'
         ext = ".pkl"
         save_name_local = src_dir_name.rsplit('/', 1)[-1] + "_" + file_name[:-10] + ext
         save_name = save_dir + "/" + save_name_local
@@ -242,9 +247,9 @@ def gen_data_job_single_core(src_dir_name, save_dir, file_name, name_contains):
         if len(name_contains) > 0 and not re.search(name_contains, save_name, re.IGNORECASE):
             print(save_name, " not matching specified subset, ignore")
             return 0
-        if os.path.exists(save_name):
-            print(save_name, " already generated")
-            return 0
+        # if os.path.exists(save_name):
+        #     print(save_name, " already generated")
+        #     return 0
 
         h = cst.NOMINAL_H * random.uniform(0.9, 1.1)
         # h = cst.NOMINAL_H
@@ -259,7 +264,7 @@ def gen_data_job_single_core(src_dir_name, save_dir, file_name, name_contains):
                          # actuation=spd,
                          kinematic_only=True,
                          verbose=True)
-
+        'So this is the motion file! It is NOT the body model!!!'
         motion = load_motion_amass(motion_name)
         motion_info = get_raw_motion_info(robot, motion)
 
@@ -297,17 +302,18 @@ def gen_data_all(save_dir, src_dir, name_contains):
     count = 0
     for d in list_dirs:
         with os.scandir(d) as it:
-
+            for entry in it:
+                gen_data_job_single_core(d, save_dir, entry.name, name_contains)
             # https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop
             # results = Parallel(n_jobs=2)(delayed(countdown)(10 ** 7) for _ in range(20))
             # with parallel_backend("loky", inner_max_num_threads=2):
 
-            results = Parallel(n_jobs=args.n_proc)(
-                delayed(gen_data_job_single_core)(
-                    d, save_dir, entry.name, name_contains
-                ) for entry in it
-            )
-            count += np.sum(results)
+            # results = Parallel(n_jobs=args.n_proc)(
+            #     delayed(gen_data_job_single_core)(
+            #         d, save_dir, entry.name, name_contains
+            #     ) for entry in it
+            # )
+            # count += np.sum(results)
 
     print("count ", count)
 

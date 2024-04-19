@@ -53,6 +53,8 @@ class TrainSubDataset(Dataset):
             for t in random.sample(time_range, k=num_samples):
                 # IMU dim (num_samples, T, num_feat)
                 IMU.append(IMU_c[(t - seq_length):t, :])
+                'For S_c, we are going to extract y from it. Also here it served as a ground truth of the previous step'
+                'Notice the t+1 part'
                 S.append(S_c[(t - seq_length):(t + 1), :])
                 if with_acc_sum:
                     IMU_sum.append(IMU_sum_c[(t - seq_length):t, :])

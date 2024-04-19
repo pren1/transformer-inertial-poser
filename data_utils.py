@@ -1,7 +1,7 @@
 # Copyright (c) Meta, Inc. and its affiliates.
 # Copyright (c) Stanford University
 # all util functions not for training.
-
+import pdb
 import pickle
 import time
 from typing import List, Tuple, Union
@@ -112,11 +112,12 @@ def get_raw_motion_info_nimble_q_dummy_dq(
     cur_time = 0.015 / 2.0
     char_info = char.get_char_info()
     all_joint_idx = char_info.joint_idx.values()
-
+    'How many are there in total...'
     n_j = len(all_joint_idx) - 1    # should be 19 for verification, exclude root
 
     while cur_time < m.length():
         cur_pose = m.get_pose_by_time(cur_time)
+        'n_j = 19 nodes, 19 * 3 = 57'
         j_q = np.zeros(n_j * 3)
 
         for idx in all_joint_idx:
@@ -125,6 +126,7 @@ def get_raw_motion_info_nimble_q_dummy_dq(
             nimble_idx = char_info.nimble_map[idx] - 1
             if char.get_joint_type(idx) == pb.JOINT_FIXED:
                 # skip fixed wrist joints
+                'I think we have two wrist joints, so 3 * 2 = 6'
                 j_q[nimble_idx * 3: nimble_idx * 3 + 3] = np.nan
             else:
                 # all others are spherical
@@ -132,7 +134,7 @@ def get_raw_motion_info_nimble_q_dummy_dq(
                 Q, _ = conversions.T2Qp(T)
                 A = conversions.Q2A(Q).tolist()
                 j_q[nimble_idx * 3: nimble_idx * 3 + 3] = A
-
+        'Now the sum of not_nan_array is 51'
         not_nan_array = ~ np.isnan(j_q)
         j_dq = j_q * 0.0      # since the method does not use velocity, just fill with zeros
         j_q_filtered = j_q[not_nan_array].tolist()
@@ -148,10 +150,10 @@ def get_raw_motion_info_nimble_q_dummy_dq(
         v = (p_n - p) / cst.DT
         Q_diff = Q_mult(Q * np.array([-1., -1, -1, 1]), Q_n)
         w = conversions.Q2A(Q_diff) / cst.DT
-
+        'root pos + root angle + other node angle + root velocity + root rotation rate + other node angle velocity'
+        'v, start at 57, since p is 3, A is 3, j_q_filtered is 51. Notice this is 0-index~'
         cur_info = p.tolist() + conversions.Q2A(Q).tolist() + j_q_filtered + \
             v.tolist() + w.tolist() + j_dq_filtered
-
         raw_info.append(cur_info)
         cur_time += cst.DT
 
@@ -200,9 +202,12 @@ def imu_rotate_to_local(batch_imu):
             other_r[:, i, :, :]
         )
 
+    'This is the operation obtaining root acceleration'
     root_acc = batch_imu[:, 6 * 9: 6 * 9 + 3]
+    'This is the operation obtaining other acceleration'
     other_acc = batch_imu[:, 6 * 9 + 3:].reshape(-1, 5, 3)
     other_acc_local = other_acc.copy()
+    'So you are converting the leaf acceleration to root coordinate frame'
     for i in range(5):
         other_acc_local[:, i, :] = np.einsum(
             'ijk,ik->ij',

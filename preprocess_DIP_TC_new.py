@@ -3,6 +3,7 @@
 
 import argparse
 import importlib.util
+import pdb
 import shutil
 import sys
 from typing import Tuple
@@ -72,13 +73,12 @@ def load_and_augment_dip_motion(
         data_imu = data_gt
     else:
         data_imu = load(name_imu)
-
     # DIP data set
     # Note: data_gt and data_imu length off a little bit (e.g. 1 frame)
     if "imu_ori" in data_imu:
         imu_R = np.array(data_imu["imu_ori"])       # (seq_len, 17, 3, 3)
         imu_acc = np.array(data_imu["imu_acc"])     # (seq_len, 17, 3)
-    # Total Capture dataset
+    # important: Total Capture dataset
     # Note: somehow IMU order [11, 12, 7, 8, 0, 2] is different from DIP, which is [7, 8, 11, 12, 0, 2]
     elif "ori" in data_imu:
         imu_R_sub = np.array(data_imu["ori"])       # (seq_len, 6, 3, 3)
@@ -86,6 +86,7 @@ def load_and_augment_dip_motion(
         imu_R = np.zeros((imu_R_sub.shape[0], 17, 3, 3))
         imu_acc = np.zeros((imu_R_sub.shape[0], 17, 3))
         # (ll, rl, lw, rw, h, r)
+        'Ah, you just fill the orientations into the 17 sensors matrix'
         imu_R[:, [11, 12, 7, 8, 0, 2], :, :] = imu_R_sub
         imu_acc[:, [11, 12, 7, 8, 0, 2], :] = imu_acc_sub
         # print(imu_R.shape)
@@ -102,8 +103,16 @@ def load_and_augment_dip_motion(
             p = np.array(data_gt["trans"][pose_id])
             root_R = belly_R
         else:
+            'do not know why but this turns xyz into zxy'
             root_R = cst.rot_up_R.dot(belly_R)
+            'why there is a offset here...?'
             p = np.array([0, 0, cst.root_z_offset])
+        'Rp2T means you build a 4x4 transformation matrix'
+        'Like this:'
+        # array([[0., 0., 1., 0.],
+        #        [1., 0., 0., 0.],
+        #        [0., 1., 0., 0.95],
+        #        [0., 0., 0., 1.]])
         pose.set_transform(_char_info.bvh_map[_char_info.ROOT], conversions.Rp2T(root_R, p), local=False)
 
     return motion, imu_R, imu_acc
@@ -170,7 +179,7 @@ def get_real_imu_readings_ours_format_knee(
     H_acc = imu_acc_real[:, dip_sensors, :]
 
     H_ori, H_acc = fill_in_nan_values(H_ori, H_acc)
-
+    'rotate both acceleration & orientation'
     H_acc = np.einsum('jk,abk->abj', ROT_MAT_OURS, H_acc)
     H_ori = np.einsum('jk,abki->abji', ROT_MAT_OURS, H_ori)
 
@@ -183,14 +192,14 @@ def get_real_imu_readings_ours_format_knee(
 def load_and_store(char, motion_name_gt, motion_name_imu, save_name):
     print(motion_name_gt, motion_name_imu)
     print(save_name)
-    if os.path.exists(save_name):
-        print("already generated")
-        return
+    # if os.path.exists(save_name):
+    #     print("already generated")
+    #     return
 
     # Note: s5_freestyle3 in Total Capture has very different IMU and GT SMPL poses length, ignore
     if "s5/freestyle3" in motion_name_gt:
         return
-
+    'problem: I do not really get this function...'
     motion, imu_R, imu_acc = load_and_augment_dip_motion(
         char, motion_name_gt, motion_name_imu
     )
@@ -208,6 +217,7 @@ def load_and_store(char, motion_name_gt, motion_name_imu, save_name):
         qdq = get_raw_motion_info_nimble_q_dummy_dq(char, motion)
         print(qdq.shape)
         with open(save_name, "wb") as handle:
+            'do not worry, the imu and qdq are saved here, and the SBP will be merged later'
             pickle.dump({"imu": h, "nimble_qdq": qdq}, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return
@@ -228,14 +238,15 @@ def gen_data_all_dip(char, src_dir, save_dir):
         with os.scandir(d) as it:
             for entry in it:
                 if entry.name.endswith('.pkl'):
+                    'data/source/DIP_IMU/s_09/04.pkl'
                     motion_name = os.path.join(d, entry.name)
 
                     save_ext = ".pt" if DIP_FORMAT else ".pkl"
                     save_name_local = "dipimu_" + d.rsplit('/', 1)[-1] \
                                       + "_" + entry.name[:-4] + save_ext
                     save_name = save_dir + "/" + save_name_local
+                    'data/preprocessed_DIP_IMU_v1/dipimu_s_09_04.pkl'
                     save_name = save_name.replace(" ", "_")
-
                     load_and_store(char, motion_name, motion_name, save_name)
 
                     count += 1

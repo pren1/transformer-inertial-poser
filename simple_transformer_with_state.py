@@ -6,6 +6,7 @@ from torch import nn
 
 
 class TF_RNN_Past_State(nn.Module):
+    'size_s is the output size'
     def __init__(
         self,
         input_size_imu, size_s,
@@ -26,6 +27,7 @@ class TF_RNN_Past_State(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=tf_in_dim,
                                                    nhead=n_heads,
                                                    dim_feedforward=tf_hid_size)
+        'You may want to check ths shape of tf_encode (its output size) here'
         self.tf_encode = torch.nn.TransformerEncoder(encoder_layer, num_layers=tf_layers)
         # (len, bs, input_size_x)
 
@@ -55,6 +57,7 @@ class TF_RNN_Past_State(nn.Module):
 
     def _generate_square_subsequent_mask(self, sz: int):
         """Generates an upper-triangular matrix of -inf, with zeros on diag."""
+        'I do not really get this..'
         return torch.triu(torch.ones(sz, sz) * float('-inf'), diagonal=1)
 
     def forward(self, x_imu, x_s):
@@ -62,6 +65,7 @@ class TF_RNN_Past_State(nn.Module):
 
         x_imu = x_imu.clone()
         x_s = x_s.clone()
+        'This nan solution is important'
         x_s[x_s.isnan()] = 0.0        # if include dip data, could be nan
         bs = x_imu.size()[0]
         seq_len = x_imu.size()[1]
@@ -72,8 +76,10 @@ class TF_RNN_Past_State(nn.Module):
 
         x_imu = (nn.Dropout(self.in_dropout))(x_imu)
         # exclude root info in history input
+        'This is important, the root information is ignored~!'
         x_s[:, :, 18*6: 18*6 + 3] *= 0.0
         # x_s[:, :, 18*6:] *= 0.0
+        'so, x_s is your past state?! I think its the past output/ground truth..?'
         x_s = (nn.Dropout(self.past_state_dropout))(x_s)
         x = torch.cat((x_imu, x_s), dim=2)
         x = self.in_linear(x)
@@ -81,6 +87,7 @@ class TF_RNN_Past_State(nn.Module):
         x = x.permute(1, 0, 2)
         # (len, bs, input_size_x)
 
+        'We need to double check this...?'
         # mask future state and IMU
         mask = self._generate_square_subsequent_mask(len(x)).to(device)
 
