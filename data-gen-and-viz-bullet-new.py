@@ -302,18 +302,18 @@ def gen_data_all(save_dir, src_dir, name_contains):
     count = 0
     for d in list_dirs:
         with os.scandir(d) as it:
-            for entry in it:
-                gen_data_job_single_core(d, save_dir, entry.name, name_contains)
+            # for entry in it:
+            #     gen_data_job_single_core(d, save_dir, entry.name, name_contains)
             # https://stackoverflow.com/questions/9786102/how-do-i-parallelize-a-simple-python-loop
             # results = Parallel(n_jobs=2)(delayed(countdown)(10 ** 7) for _ in range(20))
             # with parallel_backend("loky", inner_max_num_threads=2):
 
-            # results = Parallel(n_jobs=args.n_proc)(
-            #     delayed(gen_data_job_single_core)(
-            #         d, save_dir, entry.name, name_contains
-            #     ) for entry in it
-            # )
-            # count += np.sum(results)
+            results = Parallel(n_jobs=args.n_proc)(
+                delayed(gen_data_job_single_core)(
+                    d, save_dir, entry.name, name_contains
+                ) for entry in it
+            )
+            count += np.sum(results)
 
     print("count ", count)
 

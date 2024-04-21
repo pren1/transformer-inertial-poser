@@ -167,7 +167,7 @@ if __name__ == "__main__":
                      "data/syn_TotalCapture_v0", "data/preprocessed_DIP_IMU_v0_with_aug_c_train"]
 
     'Notice the last one is actually your DIP dataset! Not belongs to amass!'
-    dataset_names = [dataset_names[4], dataset_names[-1]]
+    # dataset_names = [dataset_names[4], dataset_names[-1]]
     new_dataset_names = []
     for dataset_name in dataset_names:
         new_dataset_names.append(dataset_name.replace("v0", TAG))
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     # downweight larger datasets in AMASS a bit -- probably unimportant
     # note that only syn_TotalCapture is used in training, not the real preprocessed_TotalCapture
     dataset_down_sample_rates = [100, 100, 250, 100, 60, 60, 60, 60, 60, 60, 60, 60, 60]
-    dataset_down_sample_rates = [dataset_down_sample_rates[4], dataset_down_sample_rates[-1]]
+    # dataset_down_sample_rates = [dataset_down_sample_rates[4], dataset_down_sample_rates[-1]]
 
     store_imu_s_info(
         imu_gt_dirs=dataset_names,
