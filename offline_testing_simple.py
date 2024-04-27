@@ -122,12 +122,14 @@ def test_run_ours_gpt_v4_with_c_rt_minimal(
 
     m_len = imu.shape[0]
     s_traj_pred = np.zeros((m_len, cst.n_dofs * 2))
+    'Somehow you say that the initial ground truth is available'
     s_traj_pred[0] = s_gt[0]
 
     c_traj_pred = np.zeros((m_len, rt_runner.n_sbps * 4))
     viz_locs_seq = [np.ones((rt_runner.n_sbps, 3)) * 100.0]
 
     for t in range(0, m_len-1):
+        'Notice that you are also use previous output as input here! the s_traj_pred'
         res = rt_runner.step(imu[t, :], s_traj_pred[t, :3])
 
         s_traj_pred[t + 1, :] = res['qdq']
@@ -332,6 +334,7 @@ print(name_contains_l)
 test_files = get_all_testing_filenames(name_contains_l)
 print(len(test_files))
 if len(test_files) > MAX_TEST_MOTION_PRE_CAT:
+    'randomly sample elements'
     test_files = random.sample(test_files, MAX_TEST_MOTION_PRE_CAT)
 print(test_files)
 
@@ -379,6 +382,7 @@ for f in test_files:
     else:
         start = 0
         end = Y.shape[0]
+    'Then if you use start/end, you are not calculating the whole data'
     X = X[start: end, :]
     Y = Y[start: end, :]
 

@@ -427,7 +427,7 @@ class RTRunner:
 
             x_s_and_c = torch.tensor(in_s_and_c).float().unsqueeze(0)
             x_imu = torch.tensor(in_imu).float().unsqueeze(0)
-
+            'Here you run the model'
             y = self.model(x_imu.cuda(), x_s_and_c.cuda()).cpu()
             st_2axis_root_v_and_c = y.squeeze(0)[-1, :].detach().numpy()
 
