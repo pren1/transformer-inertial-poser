@@ -1,5 +1,6 @@
 # Copyright (c) Meta, Inc. and its affiliates.
 # Copyright (c) Stanford University
+import pdb
 
 import torch
 from torch import nn
@@ -32,14 +33,22 @@ class TF_RNN_Past_State(nn.Module):
         # (len, bs, input_size_x)
 
         self.with_rnn = with_rnn
+        self.num_layers = 1
         if with_rnn:
-            self.rnn = torch.nn.RNN(input_size=tf_in_dim,
-                                    hidden_size=rnn_hid_size,
-                                    num_layers=1,
-                                    nonlinearity='tanh',
-                                    batch_first=True,
-                                    dropout=dropout,
-                                    bidirectional=False)        # UNI-directional
+            self.lstm = nn.LSTM(input_size=tf_in_dim,
+                                hidden_size=rnn_hid_size,
+                                num_layers=self.num_layers,
+                                batch_first=True,
+                                dropout=dropout,
+                                bidirectional=False)
+            # 'Well, here you select batch_first to True. Make sure you have the right shape'
+            # self.rnn = torch.nn.RNN(input_size=tf_in_dim,
+            #                         hidden_size=rnn_hid_size,
+            #                         num_layers=1,
+            #                         nonlinearity='tanh',
+            #                         batch_first=True,
+            #                         dropout=dropout,
+            #                         bidirectional=False)        # UNI-directional
 
             self.linear = nn.Linear(rnn_hid_size, size_s)
         else:
@@ -77,9 +86,10 @@ class TF_RNN_Past_State(nn.Module):
         x_imu = (nn.Dropout(self.in_dropout))(x_imu)
         # exclude root info in history input
         'This is important, the root information is ignored~!'
+        'You ignore that information by putting its value to 0.0'
         x_s[:, :, 18*6: 18*6 + 3] *= 0.0
         # x_s[:, :, 18*6:] *= 0.0
-        'so, x_s is your past state?! I think its the past output/ground truth..?'
+        'so, x_s is your past state?! I think its the past output/ground truth..? yes.'
         x_s = (nn.Dropout(self.past_state_dropout))(x_s)
         x = torch.cat((x_imu, x_s), dim=2)
         x = self.in_linear(x)
@@ -101,9 +111,14 @@ class TF_RNN_Past_State(nn.Module):
 
         if self.with_rnn:
             # x shape (bs, L, input_size(H_in))
-            # init hidden state
-            hidden = torch.zeros(1, x.size()[0], self.rnn_hid_size).to(device=device)
-            x, _ = self.rnn(x, hidden)
-            # x shape (bs, L, self.emd_size(H_out) * 2)
+            h0 = torch.zeros(self.num_layers, x.size()[0], self.rnn_hid_size).to(device)  # Initialize hidden state
+            c0 = torch.zeros(self.num_layers, x.size()[0], self.rnn_hid_size).to(device)  # Initialize cell state
+
+            x, _ = self.lstm(x, (h0, c0))  # Forward pass through the LSTM layer
+            # # init hidden state
+            # hidden = torch.zeros(1, x.size()[0], self.rnn_hid_size).to(device=device)
+            # pdb.set_trace()
+            # x, _ = self.rnn(x, hidden)
+            # # x shape (bs, L, self.emd_size(H_out) * 2)
 
         return self.linear(x)
