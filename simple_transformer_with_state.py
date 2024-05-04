@@ -33,14 +33,16 @@ class TF_RNN_Past_State(nn.Module):
         # (len, bs, input_size_x)
 
         self.with_rnn = with_rnn
-        self.num_layers = 1
+        self.num_layers = 2
+        self.is_bidirectional = True
+        self.bidirectional_scaler=2 if self.is_bidirectional else 1
         if with_rnn:
             self.lstm = nn.LSTM(input_size=tf_in_dim,
                                 hidden_size=rnn_hid_size,
                                 num_layers=self.num_layers,
                                 batch_first=True,
                                 dropout=dropout,
-                                bidirectional=False)
+                                bidirectional=self.is_bidirectional)
             # 'Well, here you select batch_first to True. Make sure you have the right shape'
             # self.rnn = torch.nn.RNN(input_size=tf_in_dim,
             #                         hidden_size=rnn_hid_size,
@@ -50,7 +52,7 @@ class TF_RNN_Past_State(nn.Module):
             #                         dropout=dropout,
             #                         bidirectional=False)        # UNI-directional
 
-            self.linear = nn.Linear(rnn_hid_size, size_s)
+            self.linear = nn.Linear(rnn_hid_size*self.bidirectional_scaler, size_s)
         else:
             print("no RNN layer")
             self.rnn = None
@@ -93,26 +95,27 @@ class TF_RNN_Past_State(nn.Module):
         x_s = (nn.Dropout(self.past_state_dropout))(x_s)
         x = torch.cat((x_imu, x_s), dim=2)
         x = self.in_linear(x)
-        # x shape (b, t, e)
-        x = x.permute(1, 0, 2)
-        # (len, bs, input_size_x)
 
-        'We need to double check this...?'
-        # mask future state and IMU
-        mask = self._generate_square_subsequent_mask(len(x)).to(device)
-
-        # TODO: does not know if useful, should not harm
-        x = x.reshape(seq_len, bs, self.n_heads, -1)
-        x = x.transpose(2, 3).reshape(seq_len, bs, -1)
-
-        x = self.tf_encode(x, mask)
-        # (len, bs, input_size_x)
-        x = torch.transpose(x, 0, 1)
+        # # x shape (b, t, e)
+        # x = x.permute(1, 0, 2)
+        # # (len, bs, input_size_x)
+        #
+        # 'We need to double check this...?'
+        # # mask future state and IMU
+        # mask = self._generate_square_subsequent_mask(len(x)).to(device)
+        #
+        # # TODO: does not know if useful, should not harm
+        # x = x.reshape(seq_len, bs, self.n_heads, -1)
+        # x = x.transpose(2, 3).reshape(seq_len, bs, -1)
+        #
+        # x = self.tf_encode(x, mask)
+        # # (len, bs, input_size_x)
+        # x = torch.transpose(x, 0, 1)
 
         if self.with_rnn:
             # x shape (bs, L, input_size(H_in))
-            h0 = torch.zeros(self.num_layers, x.size()[0], self.rnn_hid_size).to(device)  # Initialize hidden state
-            c0 = torch.zeros(self.num_layers, x.size()[0], self.rnn_hid_size).to(device)  # Initialize cell state
+            h0 = torch.zeros(self.num_layers*self.bidirectional_scaler, x.size()[0], self.rnn_hid_size).to(device)  # Initialize hidden state
+            c0 = torch.zeros(self.num_layers*self.bidirectional_scaler, x.size()[0], self.rnn_hid_size).to(device)  # Initialize cell state
 
             x, _ = self.lstm(x, (h0, c0))  # Forward pass through the LSTM layer
             # # init hidden state
@@ -120,5 +123,4 @@ class TF_RNN_Past_State(nn.Module):
             # pdb.set_trace()
             # x, _ = self.rnn(x, hidden)
             # # x shape (bs, L, self.emd_size(H_out) * 2)
-
         return self.linear(x)
