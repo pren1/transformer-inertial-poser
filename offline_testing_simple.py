@@ -62,7 +62,7 @@ args = parser.parse_args()
 set_seed(args.seed)
 
 TEST_LEN = args.test_len
-RENDER = args.render
+RENDER = True
 MAX_TEST_MOTION_PRE_CAT = 50        # make testing faster
 # if args.save_c:
 #     MAX_TEST_MOTION_PRE_CAT = 50000
@@ -94,7 +94,7 @@ def run_ours_wrapper_with_c_rt(imu, s_gt, model_name, char) -> (np.ndarray, np.n
             with_acc_sum=WITH_ACC_SUM
         )
         model.load_state_dict(torch.load(name))
-        model = model.cuda()
+        # model = model.cuda()
         # model.eval()
         return model
 
@@ -315,6 +315,7 @@ imu_readings_dirs_OUR_format = [
     "syn_DanceDB_v0"
 ]
 
+imu_readings_dirs_OUR_format = ["preprocessed_DIP_IMU_v1"]
 # if args.save_c:
 #     try:
 #         os.makedirs("../release/data/preprocessed_DIP_IMU_v0_c")    # store c here

@@ -72,8 +72,8 @@ class TF_RNN_Past_State(nn.Module):
         return torch.triu(torch.ones(sz, sz) * float('-inf'), diagonal=1)
 
     def forward(self, x_imu, x_s):
-        device = 'cuda' if x_imu.get_device() >= 0 else None
-
+        # device = 'cuda' if x_imu.get_device() >= 0 else None
+        device = 'cpu'
         x_imu = x_imu.clone()
         x_s = x_s.clone()
         'This nan solution is important'
