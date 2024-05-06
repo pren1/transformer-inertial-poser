@@ -146,7 +146,7 @@ class RTRunnerMin:
         x_imu = torch.tensor(in_imu).float().unsqueeze(0)
         x_s_and_c = torch.tensor(in_s_and_c).float().unsqueeze(0)
 
-        y = self.model(x_imu.cuda(), x_s_and_c.cuda()).cpu()
+        y = self.model(x_imu.cpu(), x_s_and_c.cpu()).cpu()
         st_2axis_root_v_and_c = y.squeeze(0)[-1, :].detach().numpy()
 
         st_2axis_root_v, c_t, confs = self.smooth_and_split_s_c(st_2axis_root_v_and_c)

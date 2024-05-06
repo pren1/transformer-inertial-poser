@@ -86,14 +86,14 @@ def run_ours_wrapper_with_c_rt(imu, s_gt, model_name, char) -> (np.ndarray, np.n
 
         model = TF_RNN_Past_State(
             input_channels_imu, output_channels,
-            rnn_hid_size=512,
+            rnn_hid_size=512*2,
             tf_hid_size=1024, tf_in_dim=256,
             n_heads=16, tf_layers=4,
             dropout=0.0, in_dropout=0.0,
             past_state_dropout=0.8,
             with_acc_sum=WITH_ACC_SUM
         )
-        model.load_state_dict(torch.load(name))
+        model.load_state_dict(torch.load(name,map_location=torch.device('cpu')))
         # model = model.cuda()
         # model.eval()
         return model
